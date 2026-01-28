@@ -1,0 +1,11 @@
+notepad .gitignore
+```
+
+Paste this:
+```
+venv/
+__pycache__/
+*.pyc
+*.pdf
+.DS_Store
+chroma_db/
