@@ -77,14 +77,10 @@ Navigate to `http://localhost:7860`
 ## 📸 Screenshots
 
 ### Upload Interface
-![Upload](screenshot1.png)
+"C:\Users\RAKTIM\Desktop\rag-study-assistant\Screenshot 2026-02-01 183405.png"
 
 ### Chat Interface
-![Chat](screenshot2.png)
-
-### Document Info
-![Info](screenshot3.png)
-
+"C:\Users\RAKTIM\Desktop\rag-study-assistant\Screenshot 22026-02-01 184205.png"
 ## 🔧 How It Works
 
 1. **Document Processing**
