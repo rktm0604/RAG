@@ -1,178 +1,212 @@
-\# RAG Study Assistant
+<div align="center">
 
+<img src="https://img.shields.io/badge/AI--Powered-Study_Assistant-6C63FF?style=for-the-badge&logo=robot&logoColor=white" alt="RAG Study Assistant" />
 
+# 📚 RAG Study Assistant
 
-An AI-powered study assistant that lets you upload PDFs and ask questions about them using Retrieval Augmented Generation (RAG).
+### *Your intelligent study companion that actually knows your documents.*
 
+[![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Ollama](https://img.shields.io/badge/Ollama-Llama_3.2-000000?style=for-the-badge&logo=meta&logoColor=white)](https://ollama.ai)
+[![Gradio](https://img.shields.io/badge/Gradio-6.0-FF7C00?style=for-the-badge&logo=gradio&logoColor=white)](https://gradio.app)
+[![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector_DB-4A154B?style=for-the-badge)](https://www.trychroma.com)
+[![Pytest](https://img.shields.io/badge/tested_with-pytest-0A9EDC?style=for-the-badge&logo=pytest)](https://docs.pytest.org/en/latest/)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
+**Upload PDFs → Ask Questions → Get AI-Powered Answers — 100% Local & Private**
 
-\## Features
+[✨ Features](#-features) • [📸 Demo](#-demo) • [🚀 Quick Start](#-quick-start) • [🔧 Setup OCR](#-optional-setup-ocr-for-scanned-pdfs) • [🧠 Under the Hood](#-under-the-hood)
 
-\- Upload multiple PDF files
+</div>
 
-\- Ask questions about your study materials
+---
 
-\- Get accurate answers based on your documents
+## 🎯 What Is This?
 
-\- Runs locally on your GPU (NVIDIA 3050 6GB)
+A **Retrieval Augmented Generation (RAG)** system that turns your raw PDF files into an interactive, intelligent knowledge base. Upload textbooks, research papers, or lecture notes, and simply ask questions. The AI finds relevant passages from your exact documents and generates accurate, context-aware answers with **page citations**.
 
-\- Completely private - no data leaves your computer
+> **Built for students, researchers, and continuous learners.**
 
+### 💎 Why This Project?
+- 🔐 **100% Private** — All processing happens locally on your GPU. Nothing leaves your machine.
+- 🧠 **Smart Retrieval** — Uses advanced semantic search with vector embeddings, not just Ctrl+F keyword matching.
+- 📄 **Precise Citations** — Answers cite the exact page numbers they were drawn from in your PDFs.
+- 🔤 **OCR Support** — Can read scanned and image-based PDFs automatically using Tesseract.
+- ⚡ **Real-time Streaming** — Responses stream in as they are generated for a snappy, ChatGPT-like experience.
 
+---
 
-\## Tech Stack
+## ✨ Features
 
-\- Python
+| Feature | Description |
+|---|---|
+| 📤 **Multi-PDF Upload** | Process multiple textbooks or papers simultaneously into one cohesive knowledge base. |
+| 📄 **Page-Number Citations** | The AI tells you exactly which page(s) it used to generate the answer. |
+| 🔤 **OCR Fallback** | Automatically attempts OCR via Tesseract/Poppler if a PDF has no selectable text. |
+| ⚡ **Streaming Chat** | Fast, real-time typing effect during generation. |
+| 💬 **Conversation Memory** | Remembers context from previous questions for natural follow-ups. |
+| 💾 **Export Conversations** | Save your Q&A sessions (with citations!) as Markdown for your notes. |
+| 💿 **Persistent Storage** | ChromaDB persists your vectorized docs so you don't rebuild them on restart. |
+| ⚙️ **Configurable Models** | Easily swap out LLMs via the `OLLAMA_MODEL` environment variable. |
 
-\- Ollama (Llama 3.2 3B)
+---
 
-\- Gradio (Web Interface)
+## 📸 Demo
 
-\- ChromaDB (Vector Database)
+<div align="center">
 
-\- PyPDF (PDF Processing)
+### Upload & Processing Interface
+![Upload Interface](Screenshot%202026-02-01%20183405.png)
 
-\- Sentence Transformers (Embeddings)
+### Intelligent Q&A Chat
+![Chat Interface](Screenshot%2022026-02-01%20184205.png)
 
+</div>
 
+---
 
-\## Installation
+## 🚀 Quick Start
 
+### Prerequisites
+- **Python 3.8+**
+- **NVIDIA GPU** (Tested on RTX 3050 6GB; significantly improves inference speed)
+- **Ollama** installed from [ollama.ai](https://ollama.ai)
 
-
-\### Prerequisites
-
-1\. Install Ollama from https://ollama.ai
-
-2\. Python 3.8 or higher
-
-
-
-\### Setup
-
-
-
-1\. Clone this repository
-
-2\. Create virtual environment:
+### 1. Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/rktm0604/RAG.git
+cd RAG
 
+# Create and activate virtual environment
 python -m venv venv
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # Linux/Mac
 
-venv\\Scripts\\activate
-
-```
-
-
-
-3\. Install dependencies:
-
-```bash
-
+# Install python dependencies
 pip install -r requirements.txt
 
-```
-
-
-
-4\. Download the AI model:
-
-```bash
-
+# Download the default AI model (Llama 3.2 3B)
 ollama pull llama3.2:3b
-
 ```
 
-
-
-\## Usage
-
-
-
-1\. Start the application:
+### 2. Run the Assistant
 
 ```bash
+# Ensure Ollama is running in the background, then start the web app:
+python app.py
+```
+*Open `http://localhost:7860` in your browser!*
 
+---
+
+## 🔤 (Optional) Setup OCR for Scanned PDFs
+
+If you plan to upload scanned book pages or image-based PDFs, the app will gracefully fall back to OCR. You just need two system dependencies:
+
+1. **Install Tesseract OCR**
+   - **Windows:** Download the installer from [UB-Mannheim](https://github.com/UB-Mannheim/tesseract/wiki). Run it, and ensure `C:\Program Files\Tesseract-OCR` is added to your system `PATH`.
+   - **Linux:** `sudo apt install tesseract-ocr`
+   - **macOS:** `brew install tesseract`
+
+2. **Install Poppler** (required by pdf2image)
+   - **Windows:** Download from [poppler-windows releases](https://github.com/oschwartz10612/poppler-windows/releases), extract, and add the `bin/` folder to your system `PATH`.
+   - **Linux:** `sudo apt install poppler-utils`
+   - **macOS:** `brew install poppler`
+
+---
+
+## 🧠 Under the Hood
+
+### The Architecture Work-flow
+
+```mermaid
+graph TD
+    A[📄 User Uploads PDEs] --> B{Is Text Selectable?}
+    B -->|Yes| C[PyPDF Extraction]
+    B -->|No| D[Tesseract OCR Fallback]
+    C --> E[✂️ Smart Chunking w/ Overlap & Page Tracking]
+    D --> E
+    E --> F[🔢 Sentence Transformer Embeddings]
+    F --> G[(💾 Persistent ChromaDB Vector Store)]
+    
+    H[❓ User Asks Question] --> I[🔢 Embed Query]
+    I --> J[🔍 Semantic Search in ChromaDB]
+    G --> J
+    J -->|Returns Top Chunks + Page #s| K[🤖 Local Llama 3.2 Model]
+    K -->|Streams Output| L[💬 Answer with Page Citations]
+```
+
+---
+
+## 🛠️ Tech Stack
+
+| Component | Technology | Purpose |
+|---|---|---|
+| **LLM** | Llama 3.2 (3B) via Ollama | Answer generation & reasoning |
+| **Vector DB** | ChromaDB (Persistent) | Vector embedding storage & semantic search |
+| **Embeddings** | Sentence Transformers | Turning text into dense vector representations |
+| **PDF Toolkit** | PyPDF + pytesseract | Text extraction and image OCR fallback |
+| **Frontend UI** | Gradio 6.0 | Web-based chat & upload interface |
+| **Testing** | Pytest | Ensuring chunking, metadata, and pipeline integrity |
+
+---
+
+## 🧪 Testing
+
+The robust test suite validates chunking (including overlap and sentence boundary logic), page metadata tracking, database persistence, and edge case handling.
+
+```bash
+# Activate your venv, then run:
+python -m pytest tests/ -v
+```
+
+---
+
+## ⚙️ Configuration
+
+You can easily change the model the assistant uses without editing code. Set the `OLLAMA_MODEL` environment variable before running:
+
+```bash
+# Windows (PowerShell)
+$env:OLLAMA_MODEL="phi3:mini"
 python app.py
 
+# Linux/Mac
+OLLAMA_MODEL=phi3:mini python app.py
 ```
 
-
-
-2\. Open browser at http://localhost:7860
-
-
-
-3\. Upload your PDF files (textbooks, notes, research papers)
-
-
-
-4\. Ask questions about the content!
-
-
-
-\## How It Works
-
-
-
-1\. \*\*PDF Processing\*\*: Extracts text from uploaded PDFs
-
-2\. \*\*Chunking\*\*: Splits text into manageable chunks
-
-3\. \*\*Embedding\*\*: Converts chunks into vector embeddings
-
-4\. \*\*Vector Storage\*\*: Stores in ChromaDB for fast retrieval
-
-5\. \*\*Semantic Search\*\*: Finds relevant chunks for user questions
-
-6\. \*\*AI Generation\*\*: Uses Llama 3.2 to generate answers based on context
-
-
-
-\## Project Structure
-
+Adjust chunking logic in `pdf_reader.py`:
+```python
+chunk_size = 1000     # Target characters per chunk
+chunk_overlap = 200   # Overlap to prevent splitting context
 ```
 
-rag-study-assistant/
+---
 
-├── app.py              # Main application
+## 🚧 Roadmap
 
-├── pdf\_reader.py       # PDF processing \& RAG logic
+- [x] Page number citations in answers
+- [x] Streaming response generation
+- [x] OCR support for scanned documents
+- [ ] Support for Word documents (`.docx`)
+- [ ] Multi-language support
+- [ ] Web deployment (Hugging Face Spaces)
 
-├── test\_pdf.py         # Testing script
+---
 
-├── requirements.txt    # Dependencies
+## 👨‍💻 Author
 
-└── README.md          # Documentation
+**Raktim** — Computer Science Engineering Student
 
-```
+[![GitHub](https://img.shields.io/badge/GitHub-@rktm0604-181717?style=for-the-badge&logo=github)](https://github.com/rktm0604)
 
+---
 
+<div align="center">
 
-\## Future Enhancements
+**If this project helps you study smarter or ace your exams, give it a ⭐!**  
+Released under the [MIT License](LICENSE).
 
-\- \[ ] Conversation history
-
-\- \[ ] Citation/source highlighting
-
-\- \[ ] Support for Word documents
-
-\- \[ ] Multi-language support
-
-\- \[ ] Export chat history
-
-
-
-\## Author
-
-Computer Science Engineering Student
-
-Built as part of learning AI/ML engineering
-
-
-
-\## License
-
-MIT License
-
+</div>

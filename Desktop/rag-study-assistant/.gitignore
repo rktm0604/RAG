@@ -1,11 +1,36 @@
-notepad .gitignore
-```
-
-Paste this:
-```
+# Virtual environment
 venv/
+.venv/
+
+# Python cache
 __pycache__/
 *.pyc
+*.pyo
+
+# PDF files (user data)
 *.pdf
-.DS_Store
+
+# ChromaDB persistent storage
 chroma_db/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Screenshots / images
+*.png
+
+# Logs
+*.log
+
+# pytest
+.pytest_cache/
+
+# Environment variables
+.env
