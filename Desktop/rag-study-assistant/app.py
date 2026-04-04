@@ -7,6 +7,9 @@ from pathlib import Path
 
 import gradio as gr
 import ollama
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from pdf_reader import (
     create_knowledge_base,

@@ -23,10 +23,13 @@ from pathlib import Path
 from typing import Optional
 
 import ollama
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+
+load_dotenv()
 
 from pdf_reader import (
     create_knowledge_base,

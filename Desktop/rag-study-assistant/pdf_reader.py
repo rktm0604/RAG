@@ -1,25 +1,56 @@
 """RAG pipeline — PDF loading, chunking with page metadata, and vector search."""
 
 import logging
+import os
+import uuid
 from pathlib import Path
+from typing import Optional
 
 import chromadb
-from chromadb.utils import embedding_functions
+from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 from pypdf import PdfReader
 
-# Optional OCR dependencies (graceful fallback)
+try:
+    from sentence_transformers import SentenceTransformer
+    SEMANTIC_AVAILABLE = True
+except ImportError:
+    SEMANTIC_AVAILABLE = False
+
+try:
+    import cohere
+    COHERE_AVAILABLE = True
+except ImportError:
+    COHERE_AVAILABLE = False
+
+try:
+    from rank_bm25 import BM25Okapi
+    BM25_AVAILABLE = True
+except ImportError:
+    BM25_AVAILABLE = False
+
+OCR_AVAILABLE = True
 try:
     from pdf2image import convert_from_path
     import pytesseract
-    OCR_AVAILABLE = True
 except ImportError:
     OCR_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
-# ChromaDB persistent storage path
 CHROMA_DB_PATH = "./chroma_db"
 COLLECTION_NAME = "study_docs"
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
+
+import torch
+os.environ["SENTENCE_TRANSFORMERS_DEVICE"] = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def _get_embedding_function():
+    """Returns BGE embedding function via ChromaDB's built-in wrapper."""
+    return SentenceTransformerEmbeddingFunction(model_name=EMBEDDING_MODEL, device="cuda")
+
+
+def create_knowledge_base(pages, chunk_size=1000, chunk_overlap=200):
 
 
 # ---------------------------------------------------------------------------
@@ -239,7 +270,8 @@ def create_knowledge_base(pages, chunk_size=1000, chunk_overlap=200):
     Returns:
         ChromaDB collection for querying.
     """
-    # Accept plain string for backward compat (e.g. tests)
+    request_id = str(uuid.uuid4())[:8]
+    
     if isinstance(pages, str):
         if not pages.strip():
             raise ValueError("No text chunks were created. The document may be empty.")
@@ -254,16 +286,14 @@ def create_knowledge_base(pages, chunk_size=1000, chunk_overlap=200):
 
     client = get_chroma_client()
 
-    # Delete existing collection for a fresh start
     try:
         client.delete_collection(name=COLLECTION_NAME)
     except Exception:
-        # Collection doesn't exist yet — that's fine
         pass
 
     collection = client.create_collection(
         name=COLLECTION_NAME,
-        embedding_function=embedding_functions.SentenceTransformerEmbeddingFunction(),
+        embedding_function=_get_embedding_function(),
     )
 
     collection.add(
@@ -272,51 +302,136 @@ def create_knowledge_base(pages, chunk_size=1000, chunk_overlap=200):
         ids=[f"chunk_{i}" for i in range(len(chunked))],
     )
 
-    logger.info("Knowledge base created with %d chunks", len(chunked))
+    logger.info("[%s] Knowledge base created with %d chunks", request_id, len(chunked))
     return collection
 
 
-def search_knowledge(collection, query, n_results=3):
+def _hybrid_search_bm25(chunks: list[dict], query: str, top_k: int = 10) -> list[tuple[int, float]]:
+    """Run BM25 keyword search on chunks and return top-k indices with scores."""
+    if not BM25_AVAILABLE or not chunks:
+        return []
+    
+    corpus = [c["text"] for c in chunks]
+    tokenized_corpus = [doc.lower().split() for doc in corpus]
+    bm25 = BM25Okapi(tokenized_corpus)
+    
+    tokenized_query = query.lower().split()
+    scores = bm25.get_scores(tokenized_query)
+    
+    top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+    return [(i, scores[i]) for i in top_indices]
+
+
+def _rerank_with_cohere(query: str, documents: list[str], top_n: int = 5) -> list[tuple[int, float]]:
+    """Rerank documents using CoHERE API. Returns list of (index, score) tuples."""
+    if not COHERE_AVAILABLE:
+        return [(i, 1.0) for i in range(min(len(documents), top_n))]
+    
+    cohere_api_key = os.environ.get("COHERE_API_KEY")
+    if not cohere_api_key:
+        logger.warning("COHERE_API_KEY not set, skipping reranking")
+        return [(i, 1.0) for i in range(min(len(documents), top_n))]
+    
+    try:
+        client = cohere.Client(cohere_api_key)
+        response = client.rerank(
+            query=query,
+            documents=documents[:20],
+            top_n=top_n,
+            model="rerank-multilingual-v3.0"
+        )
+        return [(r.index, r.relevance_score) for r in response.results]
+    except Exception as e:
+        logger.warning(f"CoHERE reranking failed: {e}")
+        return [(i, 1.0) for i in range(min(len(documents), top_n))]
+
+
+def search_knowledge(collection, query, n_results=5, use_reranker: bool = False, use_hybrid: bool = False):
     """Search the knowledge base for information relevant to a query.
 
     Args:
         collection: ChromaDB collection to search.
         query: The user's question.
         n_results: Number of top results to return.
+        use_reranker: Whether to apply CoHERE reranking.
+        use_hybrid: Whether to combine BM25 + semantic search.
 
     Returns:
         Tuple of (context_text, page_numbers) where page_numbers is a sorted
         list of unique page numbers across all matching chunks.
     """
-    results = collection.query(
-        query_texts=[query],
-        n_results=n_results,
-    )
+    request_id = str(uuid.uuid4())[:8]
+    
+    if use_hybrid and BM25_AVAILABLE:
+        all_docs = collection.get()
+        if all_docs.get("documents"):
+            bm25_results = _hybrid_search_bm25(
+                [{"text": d} for d in all_docs["documents"]], query, top_k=n_results * 2
+            )
+            bm25_indices = [idx for idx, _ in bm25_results[:n_results]]
+            
+            semantic_results = collection.query(
+                query_texts=[query],
+                n_results=n_results,
+            )
+            
+            semantic_indices = set()
+            if semantic_results.get("ids") and semantic_results["ids"][0]:
+                for id_str in semantic_results["ids"][0]:
+                    doc_idx = int(id_str.split("_")[1]) if "_" in id_str else 0
+                    semantic_indices.add(doc_idx)
+            
+            combined_indices = list(set(bm25_indices) | semantic_indices)[:n_results]
+            
+            combined_docs = []
+            for idx in combined_indices:
+                if idx < len(all_docs["documents"]):
+                    combined_docs.append(all_docs["documents"][idx])
+            
+            results_documents = combined_docs[:n_results]
+            results_metadatas = []
+            for idx in combined_indices[:n_results]:
+                if idx < len(all_docs.get("metadatas", [])):
+                    results_metadatas.append(all_docs["metadatas"][idx])
+        else:
+            results_documents = []
+            results_metadatas = []
+    else:
+        results = collection.query(
+            query_texts=[query],
+            n_results=n_results,
+        )
+        results_documents = results["documents"][0] if results.get("documents") and results["documents"][0] else []
+        results_metadatas = results["metadatas"][0] if results.get("metadatas") and results["metadatas"][0] else []
 
-    if results["documents"] and results["documents"][0]:
-        context = "\n\n".join(results["documents"][0])
+    if use_reranker and COHERE_AVAILABLE and results_documents:
+        reranked = _rerank_with_cohere(query, results_documents, top_n=n_results)
+        reranked_docs = [results_documents[idx] for idx, _ in reranked]
+        reranked_metas = [results_metadatas[idx] for idx, _ in reranked]
+        results_documents = reranked_docs
+        results_metadatas = reranked_metas
+        logger.info("[%s] Reranked results using CoHERE", request_id)
 
-        # Collect page numbers from metadata
+    if results_documents:
+        context = "\n\n".join(results_documents)
+
         page_set = set()
-        if results.get("metadatas") and results["metadatas"][0]:
-            for meta in results["metadatas"][0]:
-                pages_str = meta.get("pages", "")
-                if pages_str:
-                    for p in pages_str.split(","):
-                        p = p.strip()
-                        if p:
-                            page_set.add(int(p))
+        for meta in results_metadatas:
+            pages_str = meta.get("pages", "")
+            if pages_str:
+                for p in pages_str.split(","):
+                    p = p.strip()
+                    if p:
+                        page_set.add(int(p))
 
         pages = sorted(page_set)
         logger.info(
-            "Found %d relevant chunks (pages %s) for query: '%s'",
-            len(results["documents"][0]),
-            pages or "N/A",
-            query[:80],
+            "[%s] Found %d relevant chunks (pages %s) for query: '%s'",
+            request_id, len(results_documents), pages or "N/A", query[:80],
         )
         return context, pages
 
-    logger.warning("No relevant information found for query: '%s'", query[:80])
+    logger.warning("[%s] No relevant information found for query: '%s'", request_id, query[:80])
     return "No relevant information found.", []
 
 

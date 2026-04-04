@@ -71,6 +71,7 @@ A **Retrieval Augmented Generation (RAG)** system that turns your raw PDF files 
 - **Python 3.8+**
 - **NVIDIA GPU** (Tested on RTX 3050 6GB; significantly improves inference speed)
 - **Ollama** installed from [ollama.ai](https://ollama.ai)
+- **Docker & Docker Compose** (optional, for containerized deployment)
 
 ### 1. Installation
 
@@ -99,6 +100,17 @@ python app.py
 ```
 *Open `http://localhost:7860` in your browser!*
 
+### 3. (Optional) Docker Deployment
+
+```bash
+# With GPU support
+docker-compose up --build
+
+# Or just the app (without Ollama container)
+docker build -t rag-assistant .
+docker run -p 7860:7860 -p 8000:8000 rag-assistant
+```
+
 ---
 
 ## 🔤 (Optional) Setup OCR for Scanned PDFs
@@ -116,6 +128,55 @@ If you plan to upload scanned book pages or image-based PDFs, the app will grace
    - **macOS:** `brew install poppler`
 
 ---
+
+## 🧪 Testing & Evaluation
+
+### Unit Tests
+```bash
+python -m pytest tests/ -v
+```
+
+### RAG Evaluation Metrics
+The project includes RAGAS-style evaluation to measure answer quality:
+
+```bash
+# Single evaluation
+python -m rag_eval --question "What is photosynthesis?" --answer "..." --context "..."
+
+# Batch evaluation
+python -c "
+from rag_eval import evaluate_batch
+examples = [
+    {'question': '...', 'answer': '...', 'context': '...'},
+]
+print(evaluate_batch(examples))
+"
+```
+
+Metrics tracked:
+- **Context Precision** — How relevant is the retrieved context?
+- **Faithfulness** — Does the answer match the context?
+- **Answer Relevance** — Does the answer address the question?
+
+---
+
+## ⚙️ Advanced Configuration
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OLLAMA_MODEL` | `llama3.2:3b` | Ollama model to use |
+| `EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | Sentence transformer model |
+| `EMBEDDING_DEVICE` | `cpu` | Device for embeddings (`cpu` or `cuda`) |
+| `CHROMA_DB_PATH` | `./chroma_db` | Vector database location |
+| `COHERE_API_KEY` | — | Required for reranking |
+
+### Advanced Search Options
+
+The `search_knowledge` function supports:
+- **Hybrid Search** — Combine BM25 + semantic search: `search_knowledge(..., use_hybrid=True)`
+- **Reranking** — Use CoHERE for improved ranking: `search_knowledge(..., use_reranker=True)`
 
 ## 🧠 Under the Hood
 
@@ -146,42 +207,15 @@ graph TD
 |---|---|---|
 | **LLM** | Llama 3.2 (3B) via Ollama | Answer generation & reasoning |
 | **Vector DB** | ChromaDB (Persistent) | Vector embedding storage & semantic search |
-| **Embeddings** | Sentence Transformers | Turning text into dense vector representations |
+| **Embeddings** | BAAI/bge-small-en-v1.5 | State-of-the-art semantic embeddings |
+| **Reranking** | CoHERE rerank-multilingual-v3 | Improved result ranking |
+| **Hybrid Search** | BM25 + Semantic | Combined keyword + vector search |
+| **Evaluation** | RAGAS-style metrics | Quality measurement |
 | **PDF Toolkit** | PyPDF + pytesseract | Text extraction and image OCR fallback |
 | **Frontend UI** | Gradio 6.0 | Web-based chat & upload interface |
+| **API** | FastAPI | REST endpoints for integration |
+| **Deployment** | Docker + Compose | Containerized production-ready setup |
 | **Testing** | Pytest | Ensuring chunking, metadata, and pipeline integrity |
-
----
-
-## 🧪 Testing
-
-The robust test suite validates chunking (including overlap and sentence boundary logic), page metadata tracking, database persistence, and edge case handling.
-
-```bash
-# Activate your venv, then run:
-python -m pytest tests/ -v
-```
-
----
-
-## ⚙️ Configuration
-
-You can easily change the model the assistant uses without editing code. Set the `OLLAMA_MODEL` environment variable before running:
-
-```bash
-# Windows (PowerShell)
-$env:OLLAMA_MODEL="phi3:mini"
-python app.py
-
-# Linux/Mac
-OLLAMA_MODEL=phi3:mini python app.py
-```
-
-Adjust chunking logic in `pdf_reader.py`:
-```python
-chunk_size = 1000     # Target characters per chunk
-chunk_overlap = 200   # Overlap to prevent splitting context
-```
 
 ---
 
@@ -190,6 +224,11 @@ chunk_overlap = 200   # Overlap to prevent splitting context
 - [x] Page number citations in answers
 - [x] Streaming response generation
 - [x] OCR support for scanned documents
+- [x] RAG evaluation metrics
+- [x] Advanced embeddings (bge-small-en-v1.5)
+- [x] Hybrid search (BM25 + semantic)
+- [x] Reranking with CoHERE
+- [x] Docker deployment
 - [ ] Support for Word documents (`.docx`)
 - [ ] Multi-language support
 - [ ] Web deployment (Hugging Face Spaces)
