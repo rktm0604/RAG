@@ -48,6 +48,10 @@ A **Retrieval Augmented Generation (RAG)** system that turns your raw PDF files 
 | 💾 **Export Conversations** | Save your Q&A sessions (with citations!) as Markdown for your notes. |
 | 💿 **Persistent Storage** | ChromaDB persists your vectorized docs so you don't rebuild them on restart. |
 | ⚙️ **Configurable Models** | Easily swap out LLMs via the `OLLAMA_MODEL` environment variable. |
+| 🧠 **State-of-the-art Embeddings** | Uses BAAI/bge-small-en-v1.5 for superior semantic search quality |
+| 🔀 **Hybrid Search** | Combines BM25 keyword search with semantic vector search |
+| 🎯 **Reranking** | CoHERE reranker improves result ranking accuracy |
+| 📊 **RAG Evaluation** | Built-in metrics to measure answer quality (precision, faithfulness, relevance) |
 
 ---
 
@@ -168,9 +172,19 @@ Metrics tracked:
 |----------|---------|-------------|
 | `OLLAMA_MODEL` | `llama3.2:3b` | Ollama model to use |
 | `EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | Sentence transformer model |
-| `EMBEDDING_DEVICE` | `cpu` | Device for embeddings (`cpu` or `cuda`) |
+| `EMBEDDING_DEVICE` | `cuda` | Device for embeddings (`cpu` or `cuda`) |
 | `CHROMA_DB_PATH` | `./chroma_db` | Vector database location |
-| `COHERE_API_KEY` | — | Required for reranking |
+| `COHERE_API_KEY` | — | Required for reranking (get free key at cohere.com) |
+
+### Setting Up CoHERE API Key (for reranking)
+
+Create a `.env` file in the project root:
+
+```bash
+COHERE_API_KEY=your-api-key-here
+```
+
+Get a free API key at: https://dashboard.cohere.com/api-keys
 
 ### Advanced Search Options
 
@@ -189,14 +203,22 @@ graph TD
     B -->|No| D[Tesseract OCR Fallback]
     C --> E[✂️ Smart Chunking w/ Overlap & Page Tracking]
     D --> E
-    E --> F[🔢 Sentence Transformer Embeddings]
+    E --> F[🔢 BGE Embeddings (bge-small-en-v1.5)]
     F --> G[(💾 Persistent ChromaDB Vector Store)]
     
     H[❓ User Asks Question] --> I[🔢 Embed Query]
-    I --> J[🔍 Semantic Search in ChromaDB]
-    G --> J
-    J -->|Returns Top Chunks + Page #s| K[🤖 Local Llama 3.2 Model]
-    K -->|Streams Output| L[💬 Answer with Page Citations]
+    I --> J{🔍 Search Mode?}
+    J -->|Semantic| K[ChromaDB Semantic Search]
+    J -->|Hybrid| L[BM25 + Semantic Combined]
+    J -->|Rerank| M[CoHERE Reranker]
+    G --> K
+    G --> L
+    K --> M
+    L --> M
+    M -->|Returns Top Chunks + Page #s| N[🤖 Local Llama 3.2 Model]
+    N -->|Streams Output| O[💬 Answer with Page Citations]
+    
+    P[📊 RAG Evaluation] -.->|Measures| O
 ```
 
 ---
