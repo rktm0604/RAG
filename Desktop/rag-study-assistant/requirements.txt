@@ -4,6 +4,9 @@ ollama>=0.4
 pypdf>=4.0
 chromadb>=1.0
 sentence-transformers>=3.0
+fastapi>=0.110.0
+uvicorn>=0.29.0
+python-multipart>=0.0.9
 
 # OCR for scanned PDFs (optional but recommended)
 pytesseract>=0.3
