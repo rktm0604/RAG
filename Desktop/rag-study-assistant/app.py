@@ -258,7 +258,8 @@ def clear_fn(state):
     return "🔄 All cleared! Upload new PDFs to start.", state
 
 
-with gr.Blocks(css=CSS, theme=gr.themes.Soft()) as demo:
+with gr.Blocks(theme=gr.themes.Soft()) as demo:
+    gr.HTML(f"<style>{CSS}</style>")
     gr.HTML("""
     <div class="navbar">
         <div class="navbar-left">
@@ -331,7 +332,11 @@ with gr.Blocks(css=CSS, theme=gr.themes.Soft()) as demo:
         with gr.Column():
             gr.HTML('<div class="chat-panel">')
             gr.HTML('<div class="panel-title">💬 Ask Questions</div>')
-            chatbot = gr.ChatInterface(fn=chat_fn, additional_inputs=[app_state], show_examples=True)
+            chatbot = gr.ChatInterface(fn=chat_fn, additional_inputs=[app_state], examples=[
+                    ["What are the main topics?"],
+                    ["Summarize the key points"],
+                    ["Explain important concepts"]
+                ])
             gr.HTML('</div>')
         
         gr.HTML('</div>')
