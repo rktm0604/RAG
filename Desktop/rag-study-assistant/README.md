@@ -59,13 +59,36 @@ A **Retrieval Augmented Generation (RAG)** system that turns your raw PDF files 
 
 <div align="center">
 
-### Upload & Processing Interface
-![Upload Interface](Screenshot%202026-02-01%20183405.png)
+### Dashboard - Modern Card-Based UI
+![Dashboard](Screenshot%202026-02-01%20183405.png)
 
-### Intelligent Q&A Chat
+### RAG Chat Interface
 ![Chat Interface](Screenshot%2022026-02-01%20184205.png)
 
 </div>
+
+---
+
+## 🎨 Dashboard UI
+
+The project features a **modern, responsive dashboard** built with Gradio 6.0 Blocks API:
+
+- **Navbar** — Logo, navigation, search, and Get Started button
+- **Hero Section** — Animated gradient background
+- **Feature Cards** — Interactive cards showcasing:
+  - 🔍 Semantic Search (BGE embeddings)
+  - ⚡ Hybrid Search (BM25 + Vector)
+  - 🎯 AI Reranking (CoHERE)
+- **Split Layout** — Upload panel + Chat interface
+- **Modern Styling** — Soft shadows, rounded corners, hover effects, responsive design
+
+### Running the Dashboard
+
+```bash
+python app.py
+```
+
+Open `http://localhost:7860`
 
 ---
 
