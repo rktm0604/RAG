@@ -41,13 +41,18 @@ CHROMA_DB_PATH = "./chroma_db"
 COLLECTION_NAME = "study_docs"
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
 
-import torch
-os.environ["SENTENCE_TRANSFORMERS_DEVICE"] = "cuda" if torch.cuda.is_available() else "cpu"
+try:
+    import torch
+    torch_available = torch.cuda.is_available()
+except ImportError:
+    torch_available = False
+
+os.environ["SENTENCE_TRANSFORMERS_DEVICE"] = "cpu"
 
 
 def _get_embedding_function():
     """Returns BGE embedding function via ChromaDB's built-in wrapper."""
-    return SentenceTransformerEmbeddingFunction(model_name=EMBEDDING_MODEL, device="cuda")
+    return SentenceTransformerEmbeddingFunction(model_name=EMBEDDING_MODEL, device="cpu")
 
 
 # ---------------------------------------------------------------------------
