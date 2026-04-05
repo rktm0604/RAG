@@ -7,9 +7,12 @@ from pathlib import Path
 
 import gradio as gr
 import ollama
-from dotenv import load_dotenv
 
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # Will use system env vars instead
 
 from pdf_reader import (
     create_knowledge_base,
@@ -58,16 +61,16 @@ _check_ollama()
 
 
 # ---------------------------------------------------------------------------
-# Core functions (use Gradio State instead of globals)
+# Core functions
 # ---------------------------------------------------------------------------
 
 def upload_pdfs(files, state):
     """Process uploaded PDF files and build a knowledge base."""
     if not files:
-        return "❌ Please upload at least one PDF file!", "*No documents loaded yet*", state
+        return "⚠️ **Please upload at least one PDF file!**", "*No documents loaded yet*", state
 
     try:
-        all_pages = []          # list of (page_num, text) across all PDFs
+        all_pages = []
         uploaded_files_info = []
 
         for file in files:
@@ -87,7 +90,6 @@ def upload_pdfs(files, state):
         logger.info("Creating knowledge base from %d file(s)...", len(files))
         collection = create_knowledge_base(all_pages)
 
-        # Build status message
         status = f"✅ **Successfully loaded {len(files)} PDF(s)**\n\n"
         for info in uploaded_files_info:
             status += f"📄 **{info['name']}**\n"
@@ -95,12 +97,10 @@ def upload_pdfs(files, state):
             status += f"   - Pages: {info['pages']}\n\n"
         status += "💡 You can now ask questions about your documents!"
 
-        # Sidebar file list
         files_list = "### 📚 Loaded Documents:\n\n"
         for info in uploaded_files_info:
-            files_list += f"- {info['name']} ({info['pages']} pages)\n"
+            files_list += f"- **{info['name']}** ({info['pages']} pages, {info['chars']:,} chars)\n"
 
-        # Update state
         state["knowledge_base"] = collection
         state["files"] = uploaded_files_info
         state["conversation"] = []
@@ -109,7 +109,7 @@ def upload_pdfs(files, state):
 
     except Exception as e:
         logger.error("Error uploading PDFs: %s", e, exc_info=True)
-        return f"❌ Error processing PDFs: {e}", "*No documents loaded yet*", state
+        return f"❌ **Error processing PDFs:**\n\n{str(e)}", "*No documents loaded yet*", state
 
 
 def chat_with_context(message, history, state):
@@ -125,21 +125,19 @@ def chat_with_context(message, history, state):
         return
 
     try:
-        # Retrieve relevant context + page numbers from the knowledge base
         context, source_pages = search_knowledge(kb, message)
 
-        # Build recent conversation context
         history_text = ""
         recent = history[-3:] if len(history) > 3 else history
         if recent:
-            history_text = "\nRecent conversation:\n"
+            history_text = "\n📝 **Recent conversation:**\n"
             for entry in recent:
                 if isinstance(entry, dict):
                     role = entry.get("role", "")
                     content = entry.get("content", "")
-                    history_text += f"{'User' if role == 'user' else 'Assistant'}: {content}\n"
+                    history_text += f"**{'You' if role == 'user' else 'Assistant'}:** {content}\n"
                 elif isinstance(entry, (list, tuple)) and len(entry) == 2:
-                    history_text += f"User: {entry[0]}\nAssistant: {entry[1]}\n"
+                    history_text += f"**You:** {entry[0]}\n**Assistant:** {entry[1]}\n"
 
         prompt = f"""You are a helpful study assistant. Answer the question based on the provided context from uploaded documents.
 
@@ -158,7 +156,6 @@ Instructions:
 
 Answer:"""
 
-        # Stream response from Ollama
         response_text = ""
         stream = ollama.chat(
             model=OLLAMA_MODEL,
@@ -171,14 +168,12 @@ Answer:"""
                 response_text += chunk["message"]["content"]
                 yield response_text
 
-        # Append source citation footer
         footer = "\n\n---\n\n📚 *Answer generated from your uploaded documents*"
         if source_pages:
             page_str = ", ".join(str(p) for p in source_pages)
             footer += f"  ·  📄 *Source pages: {page_str}*"
         yield response_text + footer
 
-        # Track conversation
         conversation = state.get("conversation", [])
         conversation.append({
             "question": message,
@@ -190,21 +185,20 @@ Answer:"""
 
     except Exception as e:
         logger.error("Error generating response: %s", e, exc_info=True)
-        yield (
-            f"❌ **Error generating response:** {e}\n\n"
-            "Please check that:\n"
-            f"1. Ollama is running (`ollama serve`)\n"
-            f"2. The model is installed (`ollama pull {OLLAMA_MODEL}`)"
-        )
+        yield f"❌ **Error generating response:**\n\n{str(e)}\n\n---\n\n**Troubleshooting:**\n1. Make sure Ollama is running (`ollama serve`)\n2. Verify the model is installed (`ollama list`)\n3. Try running `ollama pull {OLLAMA_MODEL}`"
 
 
 def clear_all(state):
     """Reset everything and start fresh."""
-    reset_knowledge_base()
+    try:
+        reset_knowledge_base()
+    except Exception as e:
+        logger.warning(f"Error resetting knowledge base: {e}")
+    
     state = {"knowledge_base": None, "files": [], "conversation": []}
     logger.info("Session cleared")
     return (
-        "🔄 All data cleared. Upload new PDFs to start fresh.",
+        "🔄 **All data cleared.**\n\nUpload new PDFs to start fresh!",
         "*No documents loaded yet*",
         None,
         state,
@@ -219,51 +213,94 @@ def export_conversation(state):
         return gr.update(value="No conversation to export yet.", visible=True)
 
     export = "# RAG Study Assistant - Conversation History\n\n"
-    export += f"Exported: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n---\n\n"
+    export += f"📅 Exported: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n---\n\n"
 
     for i, entry in enumerate(conversation, 1):
-        export += f"## Q{i}: {entry['question']}\n\n"
-        export += f"**Answer:** {entry['answer']}\n\n"
+        export += f"## 💬 Q{i}: {entry['question']}\n\n"
+        export += f"**Answer:**\n{entry['answer']}\n\n"
         if entry.get("pages"):
-            export += f"📄 *Source pages: {', '.join(str(p) for p in entry['pages'])}*\n\n"
-        export += f"*Time: {entry['timestamp']}*\n\n---\n\n"
+            export += f"📄 *Source pages: {', '.join(str(p) for p in entry['pages'])}*\n"
+        export += f"*🕐 {entry['timestamp']}*\n\n---\n\n"
 
     return gr.update(value=export, visible=True)
 
 
 # ---------------------------------------------------------------------------
-# Gradio UI
+# Enhanced Gradio UI
 # ---------------------------------------------------------------------------
 
-with gr.Blocks(title="RAG Study Assistant") as demo:
-    # Shared state across all components
+CSS = """
+.gradio-container {
+    max-width: 1400px !important;
+    margin: auto !important;
+}
+.main-header {
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    color: white;
+    margin-bottom: 20px;
+}
+.main-header h1 {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+}
+.main-header p {
+    font-size: 1.1em;
+    opacity: 0.9;
+}
+.status-box {
+    padding: 15px;
+    border-radius: 8px;
+    background: #f8f9fa;
+    border-left: 4px solid #667eea;
+}
+.session-card {
+    padding: 15px;
+    border-radius: 8px;
+    background: #f8f9fa;
+}
+.tips-card {
+    padding: 15px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+}
+.upload-section {
+    border: 2px dashed #667eea;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+"""
+
+with gr.Blocks(title="RAG Study Assistant", css=CSS, theme=gr.themes.Soft()) as demo:
     app_state = gr.State({"knowledge_base": None, "files": [], "conversation": []})
 
-    gr.Markdown("""
-    # 📚 RAG Study Assistant
-    ### AI-Powered Document Q&A with Conversation Memory
-
-    Upload your study materials and ask questions. The AI will find relevant information and provide detailed answers.
+    gr.HTML("""
+    <div class="main-header">
+        <h1>📚 RAG Study Assistant</h1>
+        <p>AI-Powered Document Q&A with RAG Pipeline • Local & Private</p>
+    </div>
     """)
 
     with gr.Row():
         with gr.Column(scale=2):
-            # Upload section
-            with gr.Group():
-                gr.Markdown("### 📤 Upload Documents")
-                file_upload = gr.File(
-                    file_count="multiple",
-                    label="Select PDF files (you can upload multiple)",
-                    file_types=[".pdf"],
-                )
+            gr.HTML('<div class="upload-section">')
+            gr.Markdown("### 📤 Upload Documents")
+            file_upload = gr.File(
+                file_count="multiple",
+                label="Select PDF files (multiple allowed)",
+                file_types=[".pdf"],
+            )
 
-                with gr.Row():
-                    upload_btn = gr.Button("📥 Process PDFs", variant="primary", size="lg")
-                    clear_btn = gr.Button("🗑️ Clear All", variant="stop")
+            with gr.Row():
+                upload_btn = gr.Button("📥 Process PDFs", variant="primary", size="lg")
+                clear_btn = gr.Button("🗑️ Clear All", variant="stop")
 
-                status = gr.Markdown(label="Status")
+            status = gr.Markdown("*No documents loaded yet*")
+            gr.HTML('</div>')
 
-            # Chat section
             gr.Markdown("---")
             gr.Markdown("### 💬 Ask Questions")
 
@@ -271,39 +308,43 @@ with gr.Blocks(title="RAG Study Assistant") as demo:
                 fn=chat_with_context,
                 additional_inputs=[app_state],
                 examples=[
-                    ["What are the main topics covered in these documents?"],
-                    ["Can you summarize the key points?"],
-                    ["Explain the most important concepts from the materials"],
-                    ["What does the document say about the introduction?"],
+                    ["What are the main topics in these documents?"],
+                    ["Summarize the key points"],
+                    ["Explain the most important concepts"],
+                    ["What does the document say about...?"],
                 ],
+                title="",
+                description="",
             )
 
         with gr.Column(scale=1):
-            # Sidebar
-            gr.Markdown("### 📊 Session Info")
-            files_display = gr.Markdown("*No documents loaded yet*")
+            with gr.Group():
+                gr.Markdown("### 📊 Session Info")
+                files_display = gr.Markdown("*No documents loaded yet*")
 
             gr.Markdown("---")
-            gr.Markdown("### 💾 Export")
-            export_btn = gr.Button("📄 Export Conversation", size="sm")
-            export_output = gr.Textbox(label="Conversation History", lines=10, visible=False)
+            
+            with gr.Group():
+                gr.Markdown("### 💾 Export")
+                export_btn = gr.Button("📄 Export Conversation", size="sm")
+                export_output = gr.Textbox(label="Conversation History", lines=8, visible=False)
 
             gr.Markdown("---")
-            gr.Markdown(f"""
-            ### 💡 Tips
-            - Upload multiple PDFs at once
-            - Ask specific questions for better answers
-            - Reference previous questions in follow-ups
-            - Export your conversation for notes
+            
+            with gr.Group():
+                gr.Markdown("""
+                ### 💡 Tips
+                - 📄 Upload multiple PDFs at once
+                - 🎯 Ask specific questions
+                - 🔄 Reference previous questions
+                - 📥 Export for notes
 
-            ### 🔧 Tech Stack
-            - **AI Model:** {OLLAMA_MODEL}
-            - **Vector DB:** ChromaDB
-            - **Interface:** Gradio
-            - **Runs on:** Local GPU
-            """)
+                ### 🔧 Configuration
+                - **Model:** {model}
+                - **Embeddings:** bge-small-en-v1.5
+                - **Vector DB:** ChromaDB
+                """.format(model=OLLAMA_MODEL))
 
-    # Wire up event handlers
     upload_btn.click(
         fn=upload_pdfs,
         inputs=[file_upload, app_state],

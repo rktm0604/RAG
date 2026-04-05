@@ -50,9 +50,6 @@ def _get_embedding_function():
     return SentenceTransformerEmbeddingFunction(model_name=EMBEDDING_MODEL, device="cuda")
 
 
-def create_knowledge_base(pages, chunk_size=1000, chunk_overlap=200):
-
-
 # ---------------------------------------------------------------------------
 # PDF loading
 # ---------------------------------------------------------------------------
