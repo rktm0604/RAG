@@ -45,8 +45,6 @@ A **Retrieval Augmented Generation (RAG)** system that turns your raw PDF files 
 | 🔤 **OCR Fallback** | Automatically attempts OCR via Tesseract/Poppler if a PDF has no selectable text. |
 | ⚡ **Streaming Chat** | Fast, real-time typing effect during generation. |
 | 💬 **Conversation Memory** | Remembers context from previous questions for natural follow-ups. |
-| 💾 **Export Conversations** | Save your Q&A sessions (with citations!) as Markdown for your notes. |
-| 💿 **Persistent Storage** | ChromaDB persists your vectorized docs across sessions. |
 | ⚙️ **Configurable Models** | Easily swap out LLMs via the `OLLAMA_MODEL` environment variable. |
 | 🧠 **State-of-the-art Embeddings** | Uses BAAI/bge-small-en-v1.5 for superior semantic search quality |
 | 🔀 **Hybrid Search** | Combines BM25 keyword search with semantic vector search |
@@ -126,6 +124,33 @@ ollama pull llama3.2:3b
 python app.py
 ```
 *Open `http://localhost:7860` in your browser!*
+
+---
+
+## 📁 Project Structure
+
+```
+rag-study-assistant/
+├── app.py              # Gradio web UI (entry point)
+├── api.py              # FastAPI REST API
+├── pdf_reader.py       # PDF processing + RAG pipeline (embeddings, ChromaDB)
+├── rag_eval.py         # RAG evaluation metrics
+├── dashboard.py        # Standalone dashboard demo
+├── requirements.txt    # Python dependencies
+├── pyproject.toml      # Project metadata
+├── Dockerfile          # Docker image
+├── docker-compose.yml  # Multi-container deployment (app + Ollama)
+├── .dockerignore       # Docker build exclusions
+├── .env                # Environment variables (API keys — not tracked)
+├── .gitignore          # Git exclusions
+├── tests/              # Unit tests
+│   ├── test_pdf_reader.py
+│   └── __init__.py
+├── chroma_db/          # Vector database (auto-created, gitignored)
+└── venv/               # Virtual environment (gitignored)
+```
+
+---
 
 ### 3. (Optional) Docker Deployment
 
@@ -277,6 +302,21 @@ graph TD
 - [ ] Support for Word documents (`.docx`)
 - [ ] Multi-language support
 - [ ] Web deployment (Hugging Face Spaces)
+
+---
+
+## ✅ Production Readiness
+
+| Category | Status |
+|----------|--------|
+| **CI/CD** | Docker + Docker Compose enabled |
+| **API** | FastAPI with full CRUD endpoints + Swagger docs |
+| **Testing** | pytest suite for chunking, metadata, DB operations |
+| **Security** | `.env` excluded from git; `.dockerignore` protects secrets |
+| **Structured State** | Type-hinted dataclass for app state (no fragile dicts) |
+| **GPU Support** | Torch CUDA auto-detection; Ollama GPU inference |
+| **Error Handling** | Structured logging with request IDs throughout |
+| **Code Quality** | Type hints, docstrings, modular architecture |
 
 ---
 
