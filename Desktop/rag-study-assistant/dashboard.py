@@ -1,4 +1,6 @@
 """Standalone dashboard demo for RAG Study Assistant."""
+from __future__ import annotations
+
 import gradio as gr
 
 CSS = """
@@ -71,7 +73,7 @@ DETAILS = {
     },
 }
 
-def show_detail(card_type):
+def show_detail(card_type: str) -> str:
     info = DETAILS[card_type]
     md = f"""
 ## {info['icon']} {info['title']}

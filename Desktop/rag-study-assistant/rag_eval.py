@@ -11,11 +11,13 @@ Run evaluation:
     python -m rag_eval --question "What is photosynthesis?" --answer "..." --context "..."
 """
 
+from __future__ import annotations
+
 import logging
 import re
 import uuid
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any
 
 import ollama
 
@@ -157,7 +159,7 @@ def evaluate_rag(
     question: str,
     answer: str,
     context: str,
-    ground_truth: Optional[str] = None,
+    ground_truth: str | None = None,
     model: str = "llama3.2:3b",
 ) -> EvaluationResult:
     """

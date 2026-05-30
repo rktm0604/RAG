@@ -1,12 +1,15 @@
 """RAG pipeline — PDF loading, chunking with page metadata, and vector search."""
 
+from __future__ import annotations
+
 import logging
 import os
 import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
 import chromadb
+from chromadb import Collection
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 from pypdf import PdfReader
 
@@ -50,7 +53,7 @@ except ImportError:
 os.environ["SENTENCE_TRANSFORMERS_DEVICE"] = EMBEDDING_DEVICE
 
 
-def _get_embedding_function():
+def _get_embedding_function() -> SentenceTransformerEmbeddingFunction:
     """Returns BGE embedding function via ChromaDB's built-in wrapper."""
     return SentenceTransformerEmbeddingFunction(model_name=EMBEDDING_MODEL, device=EMBEDDING_DEVICE)
 
@@ -59,7 +62,7 @@ def _get_embedding_function():
 # PDF loading
 # ---------------------------------------------------------------------------
 
-def load_pdf(pdf_path):
+def load_pdf(pdf_path: str) -> list[tuple[int, str]]:
     """Extract text from a PDF file, preserving page numbers.
 
     Tries PyPDF text extraction first. If the PDF is scanned / image-based
@@ -139,7 +142,7 @@ def load_pdf(pdf_path):
     return pages
 
 
-def pages_to_text(pages):
+def pages_to_text(pages: list[tuple[int, str]]) -> str:
     """Flatten a list of (page_number, page_text) tuples into a single string.
 
     Convenience helper for callers that only need the raw text.
@@ -151,7 +154,7 @@ def pages_to_text(pages):
 # Chunking with page metadata
 # ---------------------------------------------------------------------------
 
-def chunk_text(text, chunk_size=1000, chunk_overlap=200):
+def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> list[str]:
     """Split text into overlapping chunks, breaking on sentence boundaries.
 
     Args:
@@ -193,7 +196,9 @@ def chunk_text(text, chunk_size=1000, chunk_overlap=200):
     return chunks
 
 
-def chunk_text_with_pages(pages, chunk_size=1000, chunk_overlap=200):
+def chunk_text_with_pages(
+    pages: list[tuple[int, str]], chunk_size: int = 1000, chunk_overlap: int = 200
+) -> list[dict[str, Any]]:
     """Split page-annotated text into overlapping chunks with page metadata.
 
     Args:
@@ -255,12 +260,14 @@ def chunk_text_with_pages(pages, chunk_size=1000, chunk_overlap=200):
 # ChromaDB operations
 # ---------------------------------------------------------------------------
 
-def get_chroma_client():
+def get_chroma_client() -> chromadb.PersistentClient:
     """Get a persistent ChromaDB client."""
     return chromadb.PersistentClient(path=CHROMA_DB_PATH)
 
 
-def create_knowledge_base(pages, chunk_size=1000, chunk_overlap=200):
+def create_knowledge_base(
+    pages: list[tuple[int, str]] | str, chunk_size: int = 1000, chunk_overlap: int = 200
+) -> Collection:
     """Build a vector knowledge base from page-annotated text.
 
     Args:
@@ -348,7 +355,13 @@ def _rerank_with_cohere(query: str, documents: list[str], top_n: int = 5) -> lis
         return [(i, 1.0) for i in range(min(len(documents), top_n))]
 
 
-def search_knowledge(collection, query, n_results=5, use_reranker: bool = False, use_hybrid: bool = False):
+def search_knowledge(
+    collection: Collection,
+    query: str,
+    n_results: int = 5,
+    use_reranker: bool = False,
+    use_hybrid: bool = False,
+) -> tuple[str, list[int]]:
     """Search the knowledge base for information relevant to a query.
 
     Args:
@@ -437,7 +450,7 @@ def search_knowledge(collection, query, n_results=5, use_reranker: bool = False,
     return "No relevant information found.", []
 
 
-def reset_knowledge_base():
+def reset_knowledge_base() -> None:
     """Delete the persistent knowledge base to start fresh."""
     client = get_chroma_client()
     try:

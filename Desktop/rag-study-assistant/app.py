@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import gradio as gr
 import logging
 import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Any, Generator
 
 import ollama
 
@@ -39,14 +41,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def _check_ollama():
+def _check_ollama() -> None:
+    """Verify Ollama is running and the configured model is available."""
     try:
         models = ollama.list()
         available = [m.model for m in models.models] if hasattr(models, "models") else []
         if not any(OLLAMA_MODEL in m for m in available):
             logger.warning("Model '%s' not found in Ollama. Run: ollama pull %s", OLLAMA_MODEL, OLLAMA_MODEL)
         else:
-            logger.info("✅ Ollama running with model '%s'", OLLAMA_MODEL)
+            logger.info("Ollama running with model '%s'", OLLAMA_MODEL)
     except Exception as e:
         logger.error("Cannot connect to Ollama: %s", e)
 
@@ -172,13 +175,21 @@ body { background: #f8f9fa; }
 }
 """
 
-# State management
-    app_state = gr.State(AppState())
+app_state = gr.State(AppState())
 
 
-def upload_pdfs(files, state):
+def upload_pdfs(files: list[gr.FileData], state: AppState) -> tuple[str, AppState]:
+    """Upload and process PDF files, building the vector knowledge base.
+
+    Args:
+        files: List of uploaded PDF file objects.
+        state: Current application state.
+
+    Returns:
+        Tuple of (status_markdown, updated_app_state).
+    """
     if not files:
-        return "⚠️ Please upload at least one PDF file!", "*No documents loaded yet*", state
+        return "⚠️ Please upload at least one PDF file!", state
     
     try:
         all_pages = []
@@ -212,7 +223,17 @@ def upload_pdfs(files, state):
         return f"❌ Error: {str(e)}", state
 
 
-def chat_fn(message, history, state):
+def chat_fn(message: str, history: list, state: AppState) -> Generator[str, None, None]:
+    """Generate a streaming response to a user question.
+
+    Args:
+        message: The user's question.
+        history: Chat history list.
+        state: Current application state with knowledge base.
+
+    Yields:
+        Partial response text as tokens are streamed from Ollama.
+    """
     kb = state.knowledge_base
     
     if kb is None:
@@ -260,7 +281,15 @@ Answer:"""
         yield f"❌ Error: {str(e)}\n\nCheck Ollama is running."
 
 
-def clear_fn(state):
+def clear_fn(state: AppState) -> tuple[str, AppState]:
+    """Reset the knowledge base and clear conversation history.
+
+    Args:
+        state: Current application state.
+
+    Returns:
+        Tuple of (status_message, fresh_app_state).
+    """
     try:
         reset_knowledge_base()
     except Exception as e:

@@ -14,13 +14,15 @@ Endpoints:
     GET  /health     — Health check (Ollama + model status)
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import shutil
 import tempfile
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
 import ollama
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -116,7 +118,7 @@ class HealthResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 @app.get("/health", response_model=HealthResponse, tags=["System"])
-def health_check():
+def health_check() -> HealthResponse:
     """Check if Ollama is running and the model is available."""
     try:
         models = ollama.list()
@@ -140,7 +142,7 @@ def health_check():
 # ---------------------------------------------------------------------------
 
 @app.get("/status", response_model=StatusResponse, tags=["Session"])
-def get_status():
+def get_status() -> StatusResponse:
     """Check current session status — is a knowledge base loaded?"""
     return StatusResponse(
         knowledge_base_loaded=session["knowledge_base"] is not None,
@@ -154,7 +156,7 @@ def get_status():
 # ---------------------------------------------------------------------------
 
 @app.post("/upload", response_model=UploadResponse, tags=["Documents"])
-async def upload_pdfs(files: list[UploadFile] = File(...)):
+async def upload_pdfs(files: list[UploadFile] = File(...)) -> UploadResponse:
     """
     Upload one or more PDF files and build the knowledge base.
     Accepts multipart/form-data with multiple PDF files.
@@ -225,7 +227,7 @@ async def upload_pdfs(files: list[UploadFile] = File(...)):
 # ---------------------------------------------------------------------------
 
 @app.post("/ask", response_model=AskResponse, tags=["Q&A"])
-def ask_question(body: AskRequest):
+def ask_question(body: AskRequest) -> AskResponse:
     """
     Ask a question against the loaded knowledge base.
     Returns the answer with source page citations.
@@ -308,7 +310,7 @@ Answer:"""
 # ---------------------------------------------------------------------------
 
 @app.post("/ask/stream", tags=["Q&A"])
-def ask_question_stream(body: AskRequest):
+def ask_question_stream(body: AskRequest) -> StreamingResponse:
     """
     Ask a question with streaming response (Server-Sent Events).
     Streams tokens as they are generated — same as the Gradio UI experience.
@@ -372,7 +374,7 @@ Answer:"""
 # ---------------------------------------------------------------------------
 
 @app.get("/history", tags=["Session"])
-def get_history():
+def get_history() -> dict[str, Any]:
     """Get full conversation history for the current session."""
     return {
         "count": len(session["conversation"]),
@@ -384,7 +386,7 @@ def get_history():
 # ---------------------------------------------------------------------------
 
 @app.post("/clear", tags=["Session"])
-def clear_session():
+def clear_session() -> dict[str, str]:
     """Reset the knowledge base and conversation history."""
     reset_knowledge_base()
     session["knowledge_base"] = None
