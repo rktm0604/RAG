@@ -46,7 +46,7 @@ A **Retrieval Augmented Generation (RAG)** system that turns your raw PDF files 
 | ⚡ **Streaming Chat** | Fast, real-time typing effect during generation. |
 | 💬 **Conversation Memory** | Remembers context from previous questions for natural follow-ups. |
 | 💾 **Export Conversations** | Save your Q&A sessions (with citations!) as Markdown for your notes. |
-| 💿 **Persistent Storage** | ChromaDB persists your vectorized docs so you don't rebuild them on restart. |
+| 💿 **Persistent Storage** | ChromaDB persists your vectorized docs across sessions. |
 | ⚙️ **Configurable Models** | Easily swap out LLMs via the `OLLAMA_MODEL` environment variable. |
 | 🧠 **State-of-the-art Embeddings** | Uses BAAI/bge-small-en-v1.5 for superior semantic search quality |
 | 🔀 **Hybrid Search** | Combines BM25 keyword search with semantic vector search |
@@ -63,7 +63,7 @@ A **Retrieval Augmented Generation (RAG)** system that turns your raw PDF files 
 ![Dashboard](Screenshot%202026-02-01%20183405.png)
 
 ### RAG Chat Interface
-![Chat Interface](Screenshot%2022026-02-01%20184205.png)
+![Chat Interface](Screenshot%202026-02-01%20184205.png)
 
 </div>
 
@@ -221,7 +221,7 @@ The `search_knowledge` function supports:
 
 ```mermaid
 graph TD
-    A[📄 User Uploads PDEs] --> B{Is Text Selectable?}
+    A[📄 User Uploads PDFs] --> B{Is Text Selectable?}
     B -->|Yes| C[PyPDF Extraction]
     B -->|No| D[Tesseract OCR Fallback]
     C --> E[✂️ Smart Chunking w/ Overlap & Page Tracking]

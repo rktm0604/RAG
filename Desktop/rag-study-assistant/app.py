@@ -2,7 +2,9 @@ import gradio as gr
 import logging
 import os
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Optional
 
 import ollama
 
@@ -18,6 +20,15 @@ from pdf_reader import (
     reset_knowledge_base,
     search_knowledge,
 )
+
+
+@dataclass
+class AppState:
+    """Application state managed across sessions."""
+    knowledge_base: Optional[object] = None
+    files: list[dict] = field(default_factory=list)
+    conversation: list[dict] = field(default_factory=list)
+
 
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:3b")
 
@@ -162,7 +173,7 @@ body { background: #f8f9fa; }
 """
 
 # State management
-app_state = gr.State({"knowledge_base": None, "files": [], "conversation": []})
+    app_state = gr.State(AppState())
 
 
 def upload_pdfs(files, state):
@@ -191,9 +202,9 @@ def upload_pdfs(files, state):
             status += f"📄 **{info['name']}** — {info['pages']} pages, {info['chars']:,} chars\n"
         status += "\n💡 You can now ask questions!"
         
-        state["knowledge_base"] = collection
-        state["files"] = uploaded_files_info
-        state["conversation"] = []
+        state.knowledge_base = collection
+        state.files = uploaded_files_info
+        state.conversation = []
         
         return status, state
     except Exception as e:
@@ -202,7 +213,7 @@ def upload_pdfs(files, state):
 
 
 def chat_fn(message, history, state):
-    kb = state.get("knowledge_base")
+    kb = state.knowledge_base
     
     if kb is None:
         yield "⚠️ Please upload PDF files first!"
@@ -243,7 +254,7 @@ Answer:"""
         footer = "\n\n---\n📚 *Source pages: " + (", ".join(str(p) for p in source_pages) if source_pages else "N/A") + "*"
         yield response_text + footer
         
-        state["conversation"].append({"question": message, "answer": response_text, "pages": source_pages})
+        state.conversation.append({"question": message, "answer": response_text, "pages": source_pages})
     except Exception as e:
         logger.error("Error generating response: %s", e)
         yield f"❌ Error: {str(e)}\n\nCheck Ollama is running."
@@ -252,9 +263,9 @@ Answer:"""
 def clear_fn(state):
     try:
         reset_knowledge_base()
-    except:
-        pass
-    state = {"knowledge_base": None, "files": [], "conversation": []}
+    except Exception as e:
+        logger.warning(f"Reset error: {e}")
+    state = AppState()
     return "🔄 All cleared! Upload new PDFs to start.", state
 
 

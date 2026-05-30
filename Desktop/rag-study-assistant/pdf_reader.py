@@ -43,16 +43,16 @@ EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
 
 try:
     import torch
-    torch_available = torch.cuda.is_available()
+    EMBEDDING_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 except ImportError:
-    torch_available = False
+    EMBEDDING_DEVICE = "cpu"
 
-os.environ["SENTENCE_TRANSFORMERS_DEVICE"] = "cpu"
+os.environ["SENTENCE_TRANSFORMERS_DEVICE"] = EMBEDDING_DEVICE
 
 
 def _get_embedding_function():
     """Returns BGE embedding function via ChromaDB's built-in wrapper."""
-    return SentenceTransformerEmbeddingFunction(model_name=EMBEDDING_MODEL, device="cpu")
+    return SentenceTransformerEmbeddingFunction(model_name=EMBEDDING_MODEL, device=EMBEDDING_DEVICE)
 
 
 # ---------------------------------------------------------------------------
@@ -290,8 +290,8 @@ def create_knowledge_base(pages, chunk_size=1000, chunk_overlap=200):
 
     try:
         client.delete_collection(name=COLLECTION_NAME)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Collection did not exist, creating fresh: {e}")
 
     collection = client.create_collection(
         name=COLLECTION_NAME,
@@ -443,5 +443,5 @@ def reset_knowledge_base():
     try:
         client.delete_collection(name=COLLECTION_NAME)
         logger.info("Knowledge base reset successfully")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Knowledge base reset skipped: {e}")
